@@ -4,9 +4,9 @@ import { join } from "path";
 
 import logger from "../../helper/logger";
 import {
-    generateWarmupMessage,
-    randomDelay,
-    randomInt,
+  generateWarmupMessage,
+  randomDelay,
+  randomInt,
 } from "../../helper/organic";
 import type { WagateClient } from "../../lib/wwebjs";
 
@@ -64,7 +64,7 @@ export abstract class Orchestrator {
         logger.info(
           `[${traceId}] Phase 1 [${i + 1}/${warmup1Count}]: "${msg}"`,
         );
-        await wa2.sendMsg(msg, wa1.partnerNumber);
+        await wa2.sendMsg(msg, wa2.partnerNumber);
       }
 
       // ── Phase 2: WA1 → WA2 reply ──
@@ -79,7 +79,7 @@ export abstract class Orchestrator {
         logger.info(
           `[${traceId}] Phase 2 [${i + 1}/${warmup2Count}]: "${msg}"`,
         );
-        await wa1.sendMsg(msg, wa2.partnerNumber);
+        await wa1.sendMsg(msg, wa1.partnerNumber);
       }
 
       // ── Phase 3: WA1 → Destination (actual payload) ──

@@ -27,6 +27,9 @@ const CASUAL_QUESTIONS = [
   "sehat?",
   "udah tidur belum?",
   "kerja ga hari ini?",
+  "di rumah ga?",
+  "lagi di mana?",
+  "masih bangun?",
 ];
 
 const ACKNOWLEDGMENTS = [
@@ -42,6 +45,9 @@ const ACKNOWLEDGMENTS = [
   "noted",
   "mantap",
   "gas",
+  "oke deh",
+  "bisa bisa",
+  "siap laksanakan",
 ];
 
 const FILLERS = [
@@ -55,6 +61,39 @@ const FILLERS = [
   "nah",
   "jadi gini",
   "coba cek",
+  "gini loh",
+  "tau ga",
+  "eh dengerin dulu",
+];
+
+const FOLLOW_UPS = [
+  "gimana menurut lo?",
+  "bisa ga ya?",
+  "coba pikirin deh",
+  "lu setuju ga?",
+  "menurut gw sih bisa",
+  "harusnya sih gampang",
+  "gw rasa oke",
+  "kayaknya bener deh",
+  "cek dulu ya",
+  "nanti gw kabarin lagi",
+  "gw liat dulu ya",
+  "tar gw konfirm",
+];
+
+const REACTIONS = [
+  "haha nice",
+  "wkwk",
+  "wkwkwk bener",
+  "lol",
+  "anjir bener",
+  "waduh",
+  "asik",
+  "gokil",
+  "serius?",
+  "beneran?",
+  "oh gitu",
+  "ah masa",
 ];
 
 const EMOJIS = [
@@ -71,6 +110,8 @@ const EMOJIS = [
   "😄",
   "🎉",
   "🫡",
+  "😎",
+  "🤔",
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────
@@ -115,15 +156,41 @@ function maybeLowercase(text: string): string {
   return text.toLowerCase();
 }
 
+/**
+ * Extract a meaningful fragment from the payload content.
+ * Returns 3-8 words to make the warm-up contextually relevant.
+ */
+function extractFragment(content: string, minWords = 3, maxWords = 8): string {
+  const words = content.split(/\s+/).filter((w) => w.length > 0);
+  if (words.length < minWords) return content;
+
+  const len = Math.min(randomInt(minWords, maxWords), words.length);
+  const start = randomInt(0, Math.max(0, words.length - len));
+  return words.slice(start, start + len).join(" ");
+}
+
+/**
+ * Build a multi-sentence message by combining 2-3 parts.
+ */
+function buildMultiSentence(parts: string[]): string {
+  const separators = [". ", ", ", "\n", " — ", " "];
+  let result = parts[0];
+  for (let i = 1; i < parts.length; i++) {
+    result += pick(separators) + parts[i];
+  }
+  return result;
+}
+
 // ─── Public API ──────────────────────────────────────────────────
 
 /**
  * Generate a single warm-up message that looks organic.
- * Optionally mixes in fragments of the real content to
- * make the conversation contextually related.
+ * Mixes in fragments of the real content to make the
+ * conversation contextually related. Varies between
+ * short (1 sentence) and long (2-3 sentences).
  */
 export function generateWarmupMessage(baseContent?: string): string {
-  const strategy = randomInt(1, 5);
+  const strategy = randomInt(1, 8);
 
   switch (strategy) {
     case 1:
@@ -133,31 +200,91 @@ export function generateWarmupMessage(baseContent?: string): string {
       );
 
     case 2:
-      // Simple acknowledgment
-      return maybeEmoji(maybeTypo(maybeLowercase(pick(ACKNOWLEDGMENTS))));
+      // Simple acknowledgment + follow-up (2 sentences)
+      return maybeEmoji(
+        maybeLowercase(`${pick(ACKNOWLEDGMENTS)}. ${pick(FOLLOW_UPS)}`),
+      );
 
     case 3:
-      // Filler + fragment of real content
+      // Filler + payload fragment + follow-up (2-3 sentences)
       if (baseContent && baseContent.length > 10) {
-        const words = baseContent.split(" ");
-        const fragment = words
-          .slice(0, Math.min(randomInt(2, 4), words.length))
-          .join(" ");
-        return maybeLowercase(`${pick(FILLERS)}, ${maybeTypo(fragment)}`);
+        const fragment = extractFragment(baseContent);
+        const parts = [
+          `${pick(FILLERS)}, ${maybeTypo(fragment)}`,
+          pick(FOLLOW_UPS),
+        ];
+        if (Math.random() > 0.5) {
+          parts.push(pick(REACTIONS));
+        }
+        return maybeLowercase(buildMultiSentence(parts));
       }
       return maybeEmoji(
         maybeLowercase(`${pick(FILLERS)}, ${pick(CASUAL_QUESTIONS)}`),
       );
 
     case 4:
-      // Just a greeting
+      // Greeting + payload reference + question (long message)
+      if (baseContent && baseContent.length > 10) {
+        const fragment = extractFragment(baseContent, 4, 10);
+        return maybeLowercase(
+          buildMultiSentence([
+            `${pick(GREETINGS)}`,
+            `soal "${maybeTypo(fragment)}" itu ${pick(FOLLOW_UPS)}`,
+          ]),
+        );
+      }
       return maybeEmoji(maybeLowercase(pick(GREETINGS)));
 
     case 5:
-    default:
-      // Acknowledgment + filler
+      // Reaction + acknowledgment + follow-up (multi-sentence)
       return maybeLowercase(
-        `${pick(ACKNOWLEDGMENTS)} ${pick(FILLERS)}`.trim(),
+        maybeEmoji(
+          buildMultiSentence([
+            pick(REACTIONS),
+            pick(ACKNOWLEDGMENTS),
+            pick(FOLLOW_UPS),
+          ]),
+        ),
+      );
+
+    case 6:
+      // Payload paraphrase — rephrase a chunk of the content
+      if (baseContent && baseContent.length > 15) {
+        const fragment = extractFragment(baseContent, 5, 12);
+        const openers = [
+          "jadi soal",
+          "mengenai",
+          "tentang",
+          "ngomongin",
+          "balik lagi ke",
+          "gw mau tanya soal",
+        ];
+        return maybeLowercase(
+          maybeEmoji(
+            buildMultiSentence([
+              `${pick(openers)} ${maybeTypo(fragment)}`,
+              pick(FOLLOW_UPS),
+            ]),
+          ),
+        );
+      }
+      return maybeLowercase(`${pick(ACKNOWLEDGMENTS)} ${pick(FILLERS)}`);
+
+    case 7:
+      // Short acknowledgment (keep some messages simple)
+      return maybeEmoji(maybeTypo(maybeLowercase(pick(ACKNOWLEDGMENTS))));
+
+    case 8:
+    default:
+      // Long conversational — greeting + filler + question (3 parts)
+      return maybeLowercase(
+        maybeEmoji(
+          buildMultiSentence([
+            `${pick(GREETINGS)} ${pick(GREETINGS)}`,
+            pick(FILLERS),
+            pick(CASUAL_QUESTIONS),
+          ]),
+        ),
       );
   }
 }
