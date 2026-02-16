@@ -6,9 +6,14 @@
     "dev": "bun run --watch src/index.ts"
   },
   "dependencies": {
-    "elysia": "latest"
+    "elysia": "latest",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.34.6",
+    "winston": "^3.19.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/qrcode-terminal": "^0.12.2",
     "bun-types": "latest"
   },
   "module": "src/index.js"
