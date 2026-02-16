@@ -52,9 +52,29 @@ export class WagateClient {
   }
 
   async init() {
-    logger.info(`[${this.clientId}] Initializing...`);
-    await this.client.initialize();
-    this.setupProfile();
+    logger.info(`[${this.clientId}] Initializing — waiting for QR scan...`);
+
+    return new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`[${this.clientId}] Initialization timed out (5 min)`));
+      }, 5 * 60 * 1000);
+
+      this.client.on("ready", () => {
+        clearTimeout(timeout);
+        this.setupProfile();
+        resolve();
+      });
+
+      this.client.on("auth_failure", (msg) => {
+        clearTimeout(timeout);
+        reject(new Error(`[${this.clientId}] Auth failed: ${msg}`));
+      });
+
+      this.client.initialize().catch((err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+    });
   }
 
   setupProfile() {

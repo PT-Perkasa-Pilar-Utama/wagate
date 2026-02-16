@@ -48,24 +48,33 @@ const app = new Elysia()
 
 // ─── Startup ─────────────────────────────────────────────────────
 logger.info(`🚀 Server running on port ${env.PORT}`);
-logger.info("Initializing WhatsApp clients...");
 
 (async () => {
   try {
+    logger.info("═══════════════════════════════════════════════");
+    logger.info("[startup] Initializing Client 1 (Main)...");
+    logger.info("═══════════════════════════════════════════════");
     await client1.init();
-    logger.info("[startup] Client 1 initialized");
+    logger.info("[startup] ✅ Client 1 is ready!");
 
+    logger.info("");
+    logger.info("═══════════════════════════════════════════════");
+    logger.info("[startup] Initializing Client 2 (Secondary)...");
+    logger.info("═══════════════════════════════════════════════");
     await client2.init();
-    logger.info("[startup] Client 2 initialized");
+    logger.info("[startup] ✅ Client 2 is ready!");
 
-    // Verify partner contacts are reachable
+    logger.info("");
+    logger.info("[startup] Verifying partner contacts...");
     await client1.saveContact(env.WA2_NUMBER);
     await client2.saveContact(env.WA1_NUMBER);
 
-    logger.info("[startup] ✅ Both clients ready");
+    logger.info("═══════════════════════════════════════════════");
+    logger.info("[startup] ✅ Both clients ready — WA-GATE is live");
+    logger.info("═══════════════════════════════════════════════");
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    logger.error(`[startup] ❌ Failed to initialize clients: ${message}`, {
+    logger.error(`[startup] ❌ Failed to initialize: ${message}`, {
       error: message,
       stack: err instanceof Error ? err.stack : undefined,
     });
