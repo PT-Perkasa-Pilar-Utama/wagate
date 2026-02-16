@@ -1,5 +1,6 @@
 {
   "name": "wagate",
+  "description": "A type-safe dual-client WhatsApp gateway REST API built with Elysia and Bun, powered by whatsapp-web.js",
   "version": "1.0.50",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
