@@ -1,3 +1,4 @@
+import { cron } from "@elysiajs/cron";
 import { Elysia } from "elysia";
 
 import env from "../env";
@@ -10,6 +11,18 @@ import { client1, client2, wagatePlugin } from "./plugins/wagate";
 const app = new Elysia()
   .use(loggerPlugin)
   .use(wagatePlugin)
+  .use(
+    cron({
+      name: "monthly-chat-cleanup",
+      pattern: "0 0 1 * *", // 1st of every month at midnight
+      async run() {
+        logger.info("[cleanup] 🧹 Monthly cleanup: clearing WA1↔WA2 chats...");
+        await client1.clearChat(env.WA2_NUMBER);
+        await client2.clearChat(env.WA1_NUMBER);
+        logger.info("[cleanup] ✅ Monthly cleanup complete");
+      },
+    }),
+  )
   .onError({ as: "global" }, ({ code, error, set }) => {
     const statusCode = (error as any).status || 500;
     const message =
@@ -71,6 +84,7 @@ logger.info(`🚀 Server running on port ${env.PORT}`);
 
     logger.info("═══════════════════════════════════════════════");
     logger.info("[startup] ✅ Both clients ready — WA-GATE is live");
+    logger.info("[startup] 📅 Monthly chat cleanup: 1st of every month");
     logger.info("═══════════════════════════════════════════════");
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

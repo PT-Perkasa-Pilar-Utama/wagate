@@ -153,5 +153,20 @@ export class WagateClient {
       caption: msg,
     });
   }
-}
 
+  /**
+   * Clear all messages in a chat with the given number.
+   */
+  async clearChat(number: string) {
+    try {
+      const chatId = `${number}@c.us`;
+      const chat = await this.client.getChatById(chatId);
+      await chat.clearMessages();
+      logger.info(`[${this.clientId}] 🧹 Cleared chat with ${number}`);
+    } catch (err) {
+      logger.warn(
+        `[${this.clientId}] Could not clear chat with ${number}`,
+      );
+    }
+  }
+}

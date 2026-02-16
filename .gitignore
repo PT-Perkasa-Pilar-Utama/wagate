@@ -42,3 +42,5 @@ yarn-error.log*
 package-lock.json
 **/*.bun
 .wwebjs_auth
+.last-cleanup
+logs/
