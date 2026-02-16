@@ -14,11 +14,12 @@ import type { WagateClient } from "../../lib/wwebjs";
 // Anti-ban pipeline: warm-up conversation between WA1 ↔ WA2
 // before delivering the actual payload from WA1 to the destination.
 //
-// Phase 1: WA2 → WA1  (1-3 warm-up messages, 1-5s delay each)
-// Phase 2: WA1 → WA2  (1-3 reply messages, 1-5s delay each)
-// Phase 3: WA1 → Dest (actual payload, 1-10s delay)
+// Phase 1: WA2 → WA1  (warm-up messages)
+// Phase 2: WA1 → WA2  (reply messages)
+// Phase 3: WA1 → Dest (actual payload)
 //
-// Runs fully async — controller returns immediately.
+// Messages are queued sequentially — only one orchestration
+// runs at a time to avoid overlapping warm-up patterns.
 // ─────────────────────────────────────────────────────────────────
 
 interface OrchestratorPayload {
@@ -35,51 +36,107 @@ function cleanupTempFile(filePath: string) {
   }
 }
 
+/**
+ * Weighted random message count:
+ *   0 messages = 15% (skip warm-up — more organic)
+ *   1 message  = 50%
+ *   2 messages = 25%
+ *   3 messages = 10%
+ */
+function weightedMessageCount(): number {
+  const roll = Math.random() * 100;
+  if (roll < 15) return 0;
+  if (roll < 65) return 1; // 15-65 = 50%
+  if (roll < 90) return 2; // 65-90 = 25%
+  return 3; // 90-100 = 10%
+}
+
+// ─── Sequential Queue ────────────────────────────────────────────
+// Ensures only one orchestration runs at a time.
+
+let queue: Promise<void> = Promise.resolve();
+
+function enqueue(fn: () => Promise<void>): void {
+  queue = queue.then(fn).catch((err) => {
+    logger.error("[queue] Task failed, continuing queue", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
+}
+
+// ─── Orchestrator ────────────────────────────────────────────────
+
 export abstract class Orchestrator {
   /**
-   * Execute the full anti-ban pipeline.
-   * This is fire-and-forget from the controller's perspective.
+   * Queue a message for delivery via the anti-ban pipeline.
+   * Orchestrations run sequentially — the next one starts
+   * only after the previous one completes.
    */
-  static async execute(
+  static dispatch(
     wa1: WagateClient,
     wa2: WagateClient,
     payload: OrchestratorPayload,
   ) {
     const traceId = `orch-${Date.now()}-${randomInt(1000, 9999)}`;
+    logger.info(
+      `[${traceId}] 📥 Queued for delivery → ${payload.number}`,
+    );
 
+    enqueue(() => Orchestrator.execute(wa1, wa2, payload, traceId));
+  }
+
+  /**
+   * Execute the full anti-ban pipeline (called by queue).
+   */
+  private static async execute(
+    wa1: WagateClient,
+    wa2: WagateClient,
+    payload: OrchestratorPayload,
+    traceId: string,
+  ) {
     logger.info(
       `[${traceId}] 🚀 Starting orchestration → destination: ${payload.number}`,
     );
 
     try {
       // ── Phase 1: WA2 → WA1 warm-up ──
-      const warmup1Count = randomInt(1, 3);
-      logger.info(
-        `[${traceId}] Phase 1: WA2 → WA1 (${warmup1Count} warm-up messages)`,
-      );
+      const warmup1Count = weightedMessageCount();
 
-      for (let i = 0; i < warmup1Count; i++) {
-        await randomDelay(1000, 5000);
-        const msg = generateWarmupMessage(payload.content);
+      if (warmup1Count > 0) {
         logger.info(
-          `[${traceId}] Phase 1 [${i + 1}/${warmup1Count}]: "${msg}"`,
+          `[${traceId}] Phase 1: WA2 → WA1 (${warmup1Count} warm-up messages)`,
         );
-        await wa2.sendMsg(msg, wa2.partnerNumber);
+
+        for (let i = 0; i < warmup1Count; i++) {
+          await randomDelay(1000, 5000);
+          const msg = generateWarmupMessage(payload.content);
+          logger.info(
+            `[${traceId}] Phase 1 [${i + 1}/${warmup1Count}]: "${msg}"`,
+          );
+          await wa2.sendMsg(msg, wa2.partnerNumber);
+        }
+      } else {
+        logger.info(`[${traceId}] Phase 1: Skipped (organic variance)`);
       }
 
       // ── Phase 2: WA1 → WA2 reply ──
-      const warmup2Count = randomInt(1, 3);
-      logger.info(
-        `[${traceId}] Phase 2: WA1 → WA2 (${warmup2Count} reply messages)`,
-      );
+      const warmup2Count = weightedMessageCount();
 
-      for (let i = 0; i < warmup2Count; i++) {
-        await randomDelay(1000, 5000);
-        const msg = generateWarmupMessage(payload.content);
+      if (warmup2Count > 0) {
         logger.info(
-          `[${traceId}] Phase 2 [${i + 1}/${warmup2Count}]: "${msg}"`,
+          `[${traceId}] Phase 2: WA1 → WA2 (${warmup2Count} reply messages)`,
         );
-        await wa1.sendMsg(msg, wa1.partnerNumber);
+
+        for (let i = 0; i < warmup2Count; i++) {
+          await randomDelay(1000, 5000);
+          const msg = generateWarmupMessage(payload.content);
+          logger.info(
+            `[${traceId}] Phase 2 [${i + 1}/${warmup2Count}]: "${msg}"`,
+          );
+          await wa1.sendMsg(msg, wa1.partnerNumber);
+        }
+      } else {
+        logger.info(`[${traceId}] Phase 2: Skipped (organic variance)`);
       }
 
       // ── Phase 3: WA1 → Destination (actual payload) ──

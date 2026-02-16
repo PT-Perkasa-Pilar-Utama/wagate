@@ -1,6 +1,5 @@
 import { Elysia } from "elysia";
 
-import logger from "../../helper/logger";
 import { wagatePlugin } from "../../plugins/wagate";
 import { messagingModel, sendMediaBody, sendTextBody, successResponse } from "./model";
 import { Orchestrator } from "./orchestrator";
@@ -19,11 +18,9 @@ export const messaging = new Elysia({ prefix: "/send" })
   .post(
     "/",
     ({ body, wa1, wa2 }) => {
-      Orchestrator.execute(wa1, wa2, {
+      Orchestrator.dispatch(wa1, wa2, {
         content: body.content,
         number: body.number,
-      }).catch((err) => {
-        logger.error("[controller] Orchestrator error:", err);
       });
 
       return {
@@ -53,12 +50,10 @@ export const messaging = new Elysia({ prefix: "/send" })
   .post(
     "/media",
     ({ body, wa1, wa2 }) => {
-      Orchestrator.execute(wa1, wa2, {
+      Orchestrator.dispatch(wa1, wa2, {
         content: body.content || "",
         number: body.number,
         file: body.file,
-      }).catch((err) => {
-        logger.error("[controller] Orchestrator error:", err);
       });
 
       return {
