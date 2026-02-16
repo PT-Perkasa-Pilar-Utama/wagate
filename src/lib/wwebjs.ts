@@ -105,17 +105,51 @@ export class WagateClient {
     }
   }
 
+  /**
+   * Simulate typing indicator for 1-3 seconds before sending.
+   */
+  private async sendTyping(chatId: string) {
+    try {
+      const chat = await this.client.getChatById(chatId);
+      await chat.sendStateTyping();
+      const typingDuration = 1000 + Math.random() * 2000; // 1-3s
+      await new Promise((r) => setTimeout(r, typingDuration));
+      await chat.clearState();
+    } catch (err) {
+      logger.debug(`[${this.clientId}] Could not send typing state`);
+    }
+  }
+
+  /**
+   * Mark a chat as read (sendSeen) with a 1s delay.
+   */
+  async markAsRead(number: string) {
+    try {
+      await new Promise((r) => setTimeout(r, 1000));
+      const chatId = `${number}@c.us`;
+      const chat = await this.client.getChatById(chatId);
+      await chat.sendSeen();
+      logger.debug(`[${this.clientId}] 👁️ Marked chat ${number} as read`);
+    } catch (err) {
+      logger.debug(`[${this.clientId}] Could not mark chat as read`);
+    }
+  }
+
   async sendMsg(msg: string, to: string) {
     await this.helper.delay();
+    const chatId = `${to}@c.us`;
+    await this.sendTyping(chatId);
     logger.info(`[${this.clientId}] 📤 Sending text to ${to}`);
-    await this.client.sendMessage(`${to}@c.us`, msg);
+    await this.client.sendMessage(chatId, msg);
   }
 
   async sendFile(msg: string = "", to: string, filePath: string) {
     await this.helper.delay();
+    const chatId = `${to}@c.us`;
+    await this.sendTyping(chatId);
     logger.info(`[${this.clientId}] 📤 Sending media to ${to}`);
     const messageMedia = MessageMedia.fromFilePath(filePath);
-    await this.client.sendMessage(`${to}@c.us`, messageMedia, {
+    await this.client.sendMessage(chatId, messageMedia, {
       caption: msg,
     });
   }

@@ -4,9 +4,9 @@ import { join } from "path";
 
 import logger from "../../helper/logger";
 import {
-  generateWarmupMessage,
-  randomDelay,
-  randomInt,
+    generateWarmupMessage,
+    randomDelay,
+    randomInt,
 } from "../../helper/organic";
 import type { WagateClient } from "../../lib/wwebjs";
 
@@ -115,6 +115,9 @@ export abstract class Orchestrator {
           );
           await wa2.sendMsg(msg, wa2.partnerNumber);
         }
+
+        // WA1 reads the warm-up messages from WA2
+        await wa1.markAsRead(wa2.partnerNumber);
       } else {
         logger.info(`[${traceId}] Phase 1: Skipped (organic variance)`);
       }
@@ -135,6 +138,9 @@ export abstract class Orchestrator {
           );
           await wa1.sendMsg(msg, wa1.partnerNumber);
         }
+
+        // WA2 reads the reply messages from WA1
+        await wa2.markAsRead(wa1.partnerNumber);
       } else {
         logger.info(`[${traceId}] Phase 2: Skipped (organic variance)`);
       }
