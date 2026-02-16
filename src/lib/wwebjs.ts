@@ -5,67 +5,99 @@ import {
   WHATSAPP_WEB_BUILD_VERSION,
   WHATSAPP_WEB_VERSION,
 } from "../helper/constant";
+import logger from "../helper/logger";
 import { Helper } from "../helper/util";
 
 export class WagateClient {
   client: Client;
 
-  constructor(private helper = new Helper()) {
+  constructor(
+    public readonly clientId: string,
+    public readonly partnerNumber: string = "",
+    private helper = new Helper(),
+  ) {
     this.client = new Client({
-      authStrategy: new LocalAuth(),
+      authStrategy: new LocalAuth({ clientId }),
       webVersion: WHATSAPP_WEB_BUILD_VERSION,
-      webVersionCache: {
-        type: "remote",
-        remotePath:
-          "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/{version}.html",
-      },
+      webVersionCache: { type: "none" },
       puppeteer: {
         args: ["--no-sandbox", "--disable-setuid-sandbox"],
       },
     });
 
-    this.client.on("qr", this.onQR);
-    this.client.on("ready", this.onReady);
+    this.client.on("qr", (qr) => this.onQR(qr));
+    this.client.on("ready", () => this.onReady());
+    this.client.on("authenticated", () => {
+      logger.info(`[${this.clientId}] ✅ Authenticated successfully`);
+    });
+    this.client.on("auth_failure", (msg) => {
+      logger.error(`[${this.clientId}] ❌ Auth failure: ${msg}`);
+    });
+    this.client.on("disconnected", (reason) => {
+      logger.warn(`[${this.clientId}] ⚠️ Disconnected: ${reason}`);
+    });
   }
 
   private onQR(qr: string) {
+    logger.info(`[${this.clientId}] Scan this QR code:`);
     qrcode.generate(qr, { small: true });
   }
 
   private async onReady() {
-    console.log("[LOG] WHATSAPP BOT IS RUNNING");
-    console.log(`[LOG] WWJS VERSION: ${WHATSAPP_WEB_VERSION}`);
-    console.log(`[LOG] WEB CACHE VERSION: ${WHATSAPP_WEB_BUILD_VERSION}`);
+    logger.info(`[${this.clientId}] ✅ WHATSAPP BOT IS RUNNING`);
+    logger.info(`[${this.clientId}] WWJS: ${WHATSAPP_WEB_VERSION}`);
+    logger.info(
+      `[${this.clientId}] Web version: ${WHATSAPP_WEB_BUILD_VERSION}`,
+    );
   }
 
   async init() {
+    logger.info(`[${this.clientId}] Initializing...`);
     await this.client.initialize();
     this.setupProfile();
   }
 
   setupProfile() {
-    if (env.NODE_ENV == "production") {
+    if (env.NODE_ENV === "production") {
       const media = MessageMedia.fromFilePath("./logo.jpg");
-
       this.client.setProfilePicture(media);
-      this.client.setDisplayName(process.env.DISPLAY_NAME || "");
+      this.client.setDisplayName(
+        (this.clientId === "client-1"
+          ? env.DISPLAY_NAME_1
+          : env.DISPLAY_NAME_2) || "",
+      );
     }
   }
 
-  async sendToAdmin(msg: string) {
-    this.sendMsg(msg, process.env.ADMIN_NUMBER || "");
+  async saveContact(number: string) {
+    try {
+      const contactId = `${number}@c.us`;
+      const contact = await this.client.getContactById(contactId);
+      if (contact) {
+        logger.info(
+          `[${this.clientId}] Partner contact ${number} is reachable`,
+        );
+      }
+    } catch (err) {
+      logger.warn(
+        `[${this.clientId}] Could not verify partner contact ${number}`,
+      );
+    }
   }
 
   async sendMsg(msg: string, to: string) {
     await this.helper.delay();
-    this.client.sendMessage(`${to}@c.us`, msg);
+    logger.info(`[${this.clientId}] 📤 Sending text to ${to}`);
+    await this.client.sendMessage(`${to}@c.us`, msg);
   }
 
   async sendFile(msg: string = "", to: string, filePath: string) {
     await this.helper.delay();
+    logger.info(`[${this.clientId}] 📤 Sending media to ${to}`);
     const messageMedia = MessageMedia.fromFilePath(filePath);
-    this.client.sendMessage(`${to}@c.us`, messageMedia, {
+    await this.client.sendMessage(`${to}@c.us`, messageMedia, {
       caption: msg,
     });
   }
 }
+

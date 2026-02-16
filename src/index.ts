@@ -4,7 +4,7 @@ import env from "../env";
 import logger from "./helper/logger";
 import { messaging } from "./modules/messaging";
 import { loggerPlugin } from "./plugins/logger";
-import { client, wagatePlugin } from "./plugins/wagate";
+import { client1, client2, wagatePlugin } from "./plugins/wagate";
 
 // ─── Main Application ───────────────────────────────────────────
 const app = new Elysia()
@@ -14,6 +14,15 @@ const app = new Elysia()
     const statusCode = (error as any).status || 500;
     const message =
       "message" in error ? (error as Error).message : "Internal server error";
+    const stack =
+      "stack" in error ? (error as Error).stack : undefined;
+
+    logger.error(`[http] ${code} — ${message}`, {
+      code,
+      statusCode,
+      stack,
+    });
+
     set.status = statusCode;
     return {
       status: "error",
@@ -39,19 +48,44 @@ const app = new Elysia()
 
 // ─── Startup ─────────────────────────────────────────────────────
 logger.info(`🚀 Server running on port ${env.PORT}`);
-logger.info("Starting the bot...");
+logger.info("Initializing WhatsApp clients...");
 
-client.init().catch((err) => {
-  logger.error("Failed to initialize WhatsApp client: " + err.message);
-});
+(async () => {
+  try {
+    await client1.init();
+    logger.info("[startup] Client 1 initialized");
+
+    await client2.init();
+    logger.info("[startup] Client 2 initialized");
+
+    // Verify partner contacts are reachable
+    await client1.saveContact(env.WA2_NUMBER);
+    await client2.saveContact(env.WA1_NUMBER);
+
+    logger.info("[startup] ✅ Both clients ready");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error(`[startup] ❌ Failed to initialize clients: ${message}`, {
+      error: message,
+      stack: err instanceof Error ? err.stack : undefined,
+    });
+  }
+})();
 
 // ─── Global Error Handlers ───────────────────────────────────────
 process.once("unhandledRejection", async (reason) => {
-  logger.error("Unhandled rejection: " + reason);
+  logger.error("[process] Unhandled rejection", {
+    reason: String(reason),
+    stack:
+      reason instanceof Error ? reason.stack : undefined,
+  });
 });
 
 process.once("uncaughtException", async (err) => {
-  logger.error("Uncaught exception: " + err.message);
+  logger.error("[process] Uncaught exception", {
+    error: err.message,
+    stack: err.stack,
+  });
 });
 
 export { app };

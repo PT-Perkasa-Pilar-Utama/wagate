@@ -3,6 +3,10 @@ import { z } from "zod";
 const EnvSchema = z.object({
   NODE_ENV: z.enum(["development", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(3000),
+  WA1_NUMBER: z.string().min(10, "WA1_NUMBER is required (e.g. 628xxx)"),
+  WA2_NUMBER: z.string().min(10, "WA2_NUMBER is required (e.g. 628xxx)"),
+  DISPLAY_NAME_1: z.string().optional(),
+  DISPLAY_NAME_2: z.string().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

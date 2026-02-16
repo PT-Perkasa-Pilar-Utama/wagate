@@ -1,6 +1,8 @@
 # WA-GATE
 
-A simple, type-safe WhatsApp gateway REST API built with **Elysia** and **Bun** runtime, powered by [whatsapp-web.js](https://github.com/pedroslopez/whatsapp-web.js).
+A type-safe WhatsApp gateway REST API built with **Elysia** and **Bun**, powered by [whatsapp-web.js](https://github.com/pedroslopez/whatsapp-web.js).
+
+Features an **anti-ban multi-strategy** — two WhatsApp instances simulate organic conversation before delivering messages.
 
 ## Getting Started
 
@@ -8,12 +10,21 @@ A simple, type-safe WhatsApp gateway REST API built with **Elysia** and **Bun** 
 
 - [Bun](https://bun.sh) v1.0+
 - Google Chrome (for Puppeteer/whatsapp-web.js)
+- [PM2](https://pm2.keymetrics.io/) (production)
 
 ### Configuration
 
 1. Clone this repository
-2. Copy `.env.example` to `.env` and update the values
-3. Replace `logo.jpg` in the root directory with your own (used as WhatsApp profile picture in production)
+2. Copy `.env.example` to `.env` and fill in your values:
+
+```env
+NODE_ENV=development
+PORT=3000
+WA1_NUMBER=628xxx      # Main WhatsApp number
+WA2_NUMBER=628xxx      # Secondary WhatsApp number
+```
+
+3. Replace `logo.jpg` in root with your own (used as WhatsApp profile picture in production)
 
 ### Installation
 
@@ -27,87 +38,192 @@ bun install
 bun run dev
 ```
 
-Scan the QR code printed in the terminal with your WhatsApp app, and you're ready to go.
+Two QR codes will appear sequentially — scan each with their respective WhatsApp accounts.
 
 ## Project Structure
 
 ```
 src/
-├── index.ts                    # Server entry, global hooks
+├── index.ts                    # Server entry, dual client init
 ├── modules/
 │   └── messaging/
 │       ├── index.ts            # Routes (controller)
-│       ├── service.ts          # Business logic
+│       ├── orchestrator.ts     # Anti-ban 3-phase pipeline
+│       ├── service.ts          # Direct send logic
 │       └── model.ts            # TypeBox validation schemas
 ├── plugins/
-│   ├── wagate.ts               # WhatsApp client plugin
+│   ├── wagate.ts               # Dual WhatsApp client plugin
 │   └── logger.ts               # Winston logger plugin
-└── helper/
-    ├── constant.ts             # Status codes, WA versions
-    ├── error.ts                # Custom error classes
-    ├── success.ts              # Success response helper
-    └── util.ts                 # Phone validation, delay
+├── helper/
+│   ├── organic.ts              # Warm-up message generator
+│   ├── constant.ts             # Status codes, WA versions
+│   ├── error.ts                # Custom error classes
+│   ├── logger.ts               # Winston config (JSON for pm2)
+│   ├── success.ts              # Success response helper
+│   └── util.ts                 # Phone validation, delay
+└── lib/
+    └── wwebjs.ts               # WagateClient class
 ```
+
+## Anti-Ban Strategy
+
+Every message goes through a 3-phase warm-up pipeline:
+
+```
+Phase 1: WA2 → WA1  (1-3 organic warm-up messages, 1-5s delay)
+Phase 2: WA1 → WA2  (1-3 organic reply messages, 1-5s delay)
+Phase 3: WA1 → Dest  (actual payload, 1-10s delay)
+```
+
+Messages include realistic Indonesian casual texts with random emojis, occasional typos, and content fragments.
 
 ## Endpoints
 
 ### `GET` /api/v1/
 
-Health check.
-
-```json
-{ "message": "REST API is working" }
-```
+Health check → `{ "message": "REST API is working" }`
 
 ### `POST` /api/v1/send/
 
-Send a text message. Body (`multipart/form-data` or `application/json`):
+Send text message. Body (`application/json`):
 
-| Field   | Type   | Required | Description       |
-| ------- | ------ | -------- | ----------------- |
-| number  | string | ✅       | Phone number (e.g. `628xxx...`) |
-| content | string | ✅       | Message text      |
-
-```json
-{
-  "status": "success",
-  "code": 200,
-  "message": "Message sucessfully sent",
-  "data": { "number": "628XXX...", "content": "Hi, mom!", "type": "text" }
-}
-```
+| Field   | Type   | Required | Description                      |
+| ------- | ------ | -------- | -------------------------------- |
+| number  | string | ✅       | Phone number (e.g. `628xxx...`)  |
+| content | string | ✅       | Message text                     |
 
 ### `POST` /api/v1/send/media
 
-Send a media file with optional caption. Body (`multipart/form-data`):
+Send media file. Body (`multipart/form-data`):
 
-| Field   | Type   | Required | Description       |
-| ------- | ------ | -------- | ----------------- |
-| number  | string | ✅       | Phone number (e.g. `628xxx...`) |
-| content | string | ❌       | Caption           |
-| file    | file   | ✅       | Media file        |
+| Field   | Type   | Required | Description                      |
+| ------- | ------ | -------- | -------------------------------- |
+| number  | string | ✅       | Phone number (e.g. `628xxx...`)  |
+| content | string | ❌       | Caption                          |
+| file    | file   | ✅       | Media file                       |
 
-```json
-{
-  "status": "success",
-  "code": 200,
-  "message": "Message sucessfully sent",
-  "data": { "number": "628XXX...", "content": "caption", "type": "media" }
-}
-```
-
-### Error Response
+### Response
 
 ```json
-{ "status": "error", "code": 400, "message": "Phone number is not valid! Format: 62..." }
+{ "status": "success", "code": 200, "message": "Message queued for delivery", "data": { ... } }
 ```
 
-| Code | Status                |
-| ---- | --------------------- |
-| 200  | Success               |
-| 400  | Bad Request           |
-| 422  | Validation Error      |
-| 500  | Internal Server Error |
+---
+
+## Deployment Guide
+
+### 1. Server Setup
+
+```bash
+# Install Bun
+curl -fsSL https://bun.sh/install | bash
+
+# Install PM2 globally
+npm install -g pm2
+
+# Install Chrome for Puppeteer
+npx puppeteer browsers install chrome
+```
+
+### 2. First Run (Local — QR Scan)
+
+Run locally first to authenticate both WhatsApp accounts:
+
+```bash
+bun run dev
+```
+
+Scan both QR codes. Sessions are saved to:
+- `.wwebjs_auth/session-client-1/`
+- `.wwebjs_auth/session-client-2/`
+
+### 3. Transfer to Server
+
+```bash
+# Upload project
+rsync -avz --exclude node_modules --exclude logs ./ server:/app/wagate/
+
+# Or just the session files if project is already deployed
+scp -r .wwebjs_auth/session-client-1 server:/app/wagate/.wwebjs_auth/
+scp -r .wwebjs_auth/session-client-2 server:/app/wagate/.wwebjs_auth/
+```
+
+### 4. Server Installation
+
+```bash
+ssh server
+cd /app/wagate
+
+# Install dependencies
+bun install
+
+# Set up environment
+cp .env.example .env
+# Edit .env with production values:
+# NODE_ENV=production
+# WA1_NUMBER=628xxx
+# WA2_NUMBER=628xxx
+```
+
+### 5. Setup PM2 Logrotate
+
+```bash
+chmod +x scripts/setup-logrotate.sh
+./scripts/setup-logrotate.sh
+```
+
+This configures:
+- **Daily rotation** at midnight
+- **7-day retention** (older logs auto-deleted)
+- **100MB max size** per file (force-rotates if exceeded)
+- **Compressed** rotated logs (.gz)
+
+### 6. Start with PM2
+
+```bash
+# Start the application
+pm2 start ecosystem.config.cjs
+
+# Save PM2 process list (survives reboots)
+pm2 save
+
+# Enable PM2 startup on boot
+pm2 startup
+```
+
+### 7. Monitoring
+
+```bash
+# View live logs
+pm2 logs wagate
+
+# View structured JSON logs (production)
+pm2 logs wagate --json
+
+# Monitor dashboard
+pm2 monit
+
+# Check status
+pm2 status
+
+# Restart
+pm2 restart wagate
+
+# View log files directly
+tail -f logs/pm2-out.log
+tail -f logs/pm2-error.log
+```
+
+### Log Files
+
+| File | Content |
+|---|---|
+| `logs/pm2-out.log` | PM2 stdout (all info/debug) |
+| `logs/pm2-error.log` | PM2 stderr |
+| `logs/combined.log` | Winston combined log |
+| `logs/error.log` | Winston errors only |
+
+---
 
 ## Debugging
 
@@ -115,6 +231,7 @@ Send a media file with optional caption. Body (`multipart/form-data`):
 2. Delete `node_modules` and `bun.lock`
 3. Logout linked devices on your WhatsApp
 4. Run `bun install` again
+5. Re-scan QR codes
 
 ## License
 
