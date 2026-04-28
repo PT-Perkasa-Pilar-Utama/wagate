@@ -20,11 +20,19 @@ Features an **anti-ban multi-strategy** — two WhatsApp instances simulate orga
 ```env
 NODE_ENV=development
 PORT=3000
+SECRET_KEY=            # See step 3
 WA1_NUMBER=628xxx      # Main WhatsApp number
 WA2_NUMBER=628xxx      # Secondary WhatsApp number
 ```
 
-3. Replace `logo.jpg` in root with your own (used as WhatsApp profile picture in production)
+3. Generate a secret key and paste it into `.env`:
+
+```bash
+bun run generate-key
+# SECRET_KEY=81ac0289905ba97b6d55826325db52d06a2c2495282dcd36394504076709f522
+```
+
+4. Replace `logo.jpg` in root with your own (used as WhatsApp profile picture in production)
 
 ### Installation
 
@@ -78,6 +86,18 @@ Phase 3: WA1 → Dest  (actual payload, 1-10s delay)
 Messages include realistic Indonesian casual texts with random emojis, occasional typos, and content fragments.
 
 ## Endpoints
+
+All endpoints require authentication via one of these headers:
+
+```
+x-api-key: <your-secret-key>
+```
+or
+```
+Authorization: Bearer <your-secret-key>
+```
+
+Missing or invalid keys return `401 Unauthorized`.
 
 ### `GET` /api/v1/
 
@@ -209,6 +229,10 @@ cp .env.example .env
 # NODE_ENV=production
 # WA1_NUMBER=628xxx
 # WA2_NUMBER=628xxx
+
+# Generate and set a secret key
+bun run generate-key
+# Copy the output and set SECRET_KEY= in .env
 ```
 
 ### 5. Setup PM2 Logrotate

@@ -54,6 +54,16 @@ const app = new Elysia()
   })
   .group("/api/v1", (app) =>
     app
+      .onBeforeHandle(({ request, set }) => {
+        const apiKey =
+          request.headers.get("x-api-key") ??
+          request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+
+        if (apiKey !== env.SECRET_KEY) {
+          set.status = 401;
+          return { status: "error", code: 401, message: "Unauthorized" };
+        }
+      })
       .get("/", () => ({ message: "REST API is working" }))
       .use(messaging),
   )

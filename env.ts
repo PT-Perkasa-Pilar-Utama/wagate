@@ -3,6 +3,7 @@ import { z } from "zod";
 const EnvSchema = z.object({
   NODE_ENV: z.enum(["development", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(3000),
+  SECRET_KEY: z.string().min(32, "SECRET_KEY must be at least 32 characters — run: bun run generate-key"),
   WA1_NUMBER: z.string().min(10, "WA1_NUMBER is required (e.g. 628xxx)"),
   WA2_NUMBER: z.string().min(10, "WA2_NUMBER is required (e.g. 628xxx)"),
   DISPLAY_NAME_1: z.string().optional(),
