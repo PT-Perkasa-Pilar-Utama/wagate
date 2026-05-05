@@ -1,4 +1,8 @@
-FROM oven/bun:1
+FROM oven/bun:1 AS bun
+
+FROM debian:bookworm-slim
+
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
@@ -14,7 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libexpat1 \
     libfontconfig1 \
     libgcc-s1 \
-    libgdk-pixbuf-2.0-0 \
+    libgdk-pixbuf2.0-0 \
     libglib2.0-0 \
     libgtk-3-0 \
     libnspr4 \
@@ -35,7 +39,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender1 \
     libxss1 \
     libxtst6 \
-    libasound2t64 \
+    libappindicator3-1 \
+    libasound2 \
     ca-certificates \
     fonts-liberation \
     lsb-release \
