@@ -53,7 +53,7 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
 # Bake Chrome into the image
-RUN bunx puppeteer browsers install chrome
+RUN bun x puppeteer browsers install chrome
 
 COPY . .
 
