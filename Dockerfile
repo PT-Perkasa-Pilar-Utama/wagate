@@ -35,7 +35,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender1 \
     libxss1 \
     libxtst6 \
-    libappindicator3-1 \
     libasound2 \
     ca-certificates \
     fonts-liberation \
