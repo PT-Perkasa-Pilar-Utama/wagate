@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libexpat1 \
     libfontconfig1 \
     libgcc-s1 \
-    libgdk-pixbuf2.0-0 \
+    libgdk-pixbuf-2.0-0 \
     libglib2.0-0 \
     libgtk-3-0 \
     libnspr4 \
@@ -35,7 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender1 \
     libxss1 \
     libxtst6 \
-    libasound2 \
+    libasound2t64 \
     ca-certificates \
     fonts-liberation \
     lsb-release \
