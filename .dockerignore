@@ -1,0 +1,11 @@
+node_modules
+.wwebjs_auth
+logs
+.env
+.env.*
+*.log
+combined.log
+error.log
+.git
+.github
+.claude

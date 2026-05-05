@@ -92,7 +92,9 @@ All endpoints require authentication via one of these headers:
 ```
 x-api-key: <your-secret-key>
 ```
+
 or
+
 ```
 Authorization: Bearer <your-secret-key>
 ```
@@ -107,20 +109,20 @@ Health check → `{ "message": "REST API is working" }`
 
 Send text message. Body (`application/json`):
 
-| Field   | Type   | Required | Description                      |
-| ------- | ------ | -------- | -------------------------------- |
-| number  | string | ✅       | Phone number (e.g. `628xxx...`)  |
-| content | string | ✅       | Message text                     |
+| Field   | Type   | Required | Description                     |
+| ------- | ------ | -------- | ------------------------------- |
+| number  | string | ✅       | Phone number (e.g. `628xxx...`) |
+| content | string | ✅       | Message text                    |
 
 ### `POST` /api/v1/send/media
 
 Send media file. Body (`multipart/form-data`):
 
-| Field   | Type   | Required | Description                      |
-| ------- | ------ | -------- | -------------------------------- |
-| number  | string | ✅       | Phone number (e.g. `628xxx...`)  |
-| content | string | ❌       | Caption                          |
-| file    | file   | ✅       | Media file                       |
+| Field   | Type   | Required | Description                     |
+| ------- | ------ | -------- | ------------------------------- |
+| number  | string | ✅       | Phone number (e.g. `628xxx...`) |
+| content | string | ❌       | Caption                         |
+| file    | file   | ✅       | Media file                      |
 
 ### Response
 
@@ -196,10 +198,10 @@ curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
 # Install PM2 globally
-npm install -g pm2
+bun install -g pm2
 
 # Install Chrome for Puppeteer
-npx puppeteer browsers install chrome
+bunx puppeteer browsers install chrome
 ```
 
 ### 2. First Run (Local — QR Scan)
@@ -211,6 +213,7 @@ bun run dev
 ```
 
 Scan both QR codes. Sessions are saved to:
+
 - `.wwebjs_auth/session-client-1/`
 - `.wwebjs_auth/session-client-2/`
 
@@ -254,6 +257,7 @@ chmod +x scripts/setup-logrotate.sh
 ```
 
 This configures:
+
 - **Daily rotation** at midnight
 - **7-day retention** (older logs auto-deleted)
 - **100MB max size** per file (force-rotates if exceeded)
@@ -297,12 +301,68 @@ tail -f logs/pm2-error.log
 
 ### Log Files
 
-| File | Content |
-|---|---|
-| `logs/pm2-out.log` | PM2 stdout (all info/debug) |
-| `logs/pm2-error.log` | PM2 stderr |
-| `logs/combined.log` | Winston combined log |
-| `logs/error.log` | Winston errors only |
+| File                 | Content                     |
+| -------------------- | --------------------------- |
+| `logs/pm2-out.log`   | PM2 stdout (all info/debug) |
+| `logs/pm2-error.log` | PM2 stderr                  |
+| `logs/combined.log`  | Winston combined log        |
+| `logs/error.log`     | Winston errors only         |
+
+---
+
+## Docker Deployment
+
+An alternative to the bare-metal + PM2 setup above.
+
+### 1. Scan QR Codes Locally
+
+Same as [step 2](#2-first-run-local--qr-scan) — run locally first to authenticate both accounts and generate the session files.
+
+### 2. Build the Image
+
+```bash
+docker compose build
+```
+
+### 3. Copy Sessions to Server
+
+```bash
+rsync -avz .wwebjs_auth/ server:/app/wagate/.wwebjs_auth/
+```
+
+### 4. Run on Server
+
+```bash
+# Copy project files (without node_modules)
+rsync -avz --exclude node_modules --exclude logs ./ server:/app/wagate/
+
+ssh server
+cd /app/wagate
+
+# Set up environment
+cp .env.example .env
+# Edit .env: set SECRET_KEY, WA1_NUMBER, WA2_NUMBER
+
+docker compose up -d
+```
+
+### 5. Monitoring
+
+```bash
+# Live logs
+docker compose logs -f wagate
+
+# Status
+docker compose ps
+
+# Restart
+docker compose restart wagate
+```
+
+Sessions and logs are persisted via bind mounts:
+
+- `.wwebjs_auth/` — WhatsApp session files
+- `logs/` — application logs
 
 ---
 
