@@ -135,20 +135,30 @@ Send media file. Body (`multipart/form-data`):
 ### 1. Server Setup (Ubuntu)
 
 ```bash
-# System dependencies for Puppeteer/Chromium (headless Ubuntu)
-sudo apt-get update && sudo apt-get install -y \
-    gconf-service \
-    libgbm-dev \
-    libasound2 \
+# System dependencies for Puppeteer/Chromium (Ubuntu 20+)
+sudo apt-get update
+
+# Detect Ubuntu version for renamed packages
+UBUNTU_VER=$(lsb_release -rs | cut -d. -f1)
+if [ "$UBUNTU_VER" -ge 24 ]; then
+    VERSIONED_PKGS="libgcc-s1 libasound2t64"
+elif [ "$UBUNTU_VER" -ge 22 ]; then
+    VERSIONED_PKGS="libgcc-s1 libasound2"
+else
+    # Ubuntu 20: old package names + gconf (removed in 22+)
+    VERSIONED_PKGS="libgcc1 libasound2 gconf-service libgconf-2-4"
+fi
+
+sudo apt-get install -y \
+    libgbm1 \
     libatk1.0-0 \
+    libatk-bridge2.0-0 \
     libc6 \
     libcairo2 \
     libcups2 \
     libdbus-1-3 \
     libexpat1 \
     libfontconfig1 \
-    libgcc1 \
-    libgconf-2-4 \
     libgdk-pixbuf2.0-0 \
     libglib2.0-0 \
     libgtk-3-0 \
@@ -171,11 +181,12 @@ sudo apt-get update && sudo apt-get install -y \
     libxtst6 \
     ca-certificates \
     fonts-liberation \
-    libappindicator1 \
+    libappindicator3-1 \
     libnss3 \
     lsb-release \
     xdg-utils \
-    wget
+    wget \
+    $VERSIONED_PKGS
 
 # Install Bun
 curl -fsSL https://bun.sh/install | bash
