@@ -4,6 +4,7 @@ import { Elysia } from "elysia";
 import env from "../env";
 import logger from "./helper/logger";
 import { messaging } from "./modules/messaging";
+import { sms, smsDevice } from "./modules/sms";
 import { loggerPlugin } from "./plugins/logger";
 import { client1, client2, wagatePlugin } from "./plugins/wagate";
 
@@ -65,8 +66,12 @@ const app = new Elysia()
         }
       })
       .get("/", () => ({ message: "REST API is working" }))
-      .use(messaging),
+      .use(messaging)
+      .use(sms),
   )
+  // Device endpoints live outside the SECRET_KEY group — the phone
+  // authenticates with SMS_DEVICE_KEY instead.
+  .use(smsDevice)
   .listen(env.PORT);
 
 // ─── Startup ─────────────────────────────────────────────────────
